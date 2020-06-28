@@ -195,7 +195,7 @@ class Trainer(object):
                 loss.backward()
             self.optimizer.step()
 
-            if epoch >= self.args.alpha_epoch:
+            if epoch % self.args.alpha_epoch == 0 :
                 # search = next(iter(self.train_loaderB))
                 #其实就是读取B的数据优化alpha和beta
                 for j in range(num_img_valid):
@@ -240,7 +240,8 @@ class Trainer(object):
                 'optimizer': self.optimizer.state_dict(),
                 'best_pred': self.best_pred,
             }, is_best)
-            # print('with save checkpoint')
+            print('save checkpoint')
+
 
 
     def validation(self, epoch):
@@ -347,4 +348,5 @@ def main():
 
 if __name__ == "__main__":
    main()
+
 

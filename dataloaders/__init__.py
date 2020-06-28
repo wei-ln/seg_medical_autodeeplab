@@ -17,14 +17,15 @@ def make_data_loader(args, **kwargs):
 
     training_data = sitk.GetArrayFromImage(sitk.ReadImage(join(data_dir, 'tr_im.nii.gz')))
     training_labels = sitk.GetArrayFromImage(sitk.ReadImage(join(data_dir, 'tr_mask.nii.gz')))
+    # test_data = sitk.GetArrayFromImage(sitk.ReadImage(join(data_dir, 'val_im.nii.gz')))
+    # test_labels = sitk.GetArrayFromImage(sitk.ReadImage(join(data_dir, 'tr_mask.nii.gz')))
 
     train_data = []
     train_mask = []
 
     valid_data = []
     valid_mask = []
-    for f in range(10):
-
+    for f in range(100):
         this_name = 'part_%d' % f
         data = training_data[f, :, :]
         data = np.reshape(data, [1, 1, data.shape[0], data.shape[1]])
@@ -40,7 +41,7 @@ def make_data_loader(args, **kwargs):
 
         # sitk.WriteImage(sitk.GetImageFromArray(data), this_name + 'tr_im.nii.gz')
         # sitk.WriteImage(sitk.GetImageFromArray(labels), join(labelstr, this_name + '.nii.gz'))
-        if f > 7:
+        if f >= 80:
             valid_data.append(data)
             valid_mask.append(labels)
         else:
@@ -52,8 +53,8 @@ def make_data_loader(args, **kwargs):
     data_dict['train_mask'] = train_mask
     data_dict['valid_data'] = valid_data
     data_dict['valid_mask'] = valid_mask
-    data_dict['num_train'] = 8
-    data_dict['num_valid'] = 2
+    data_dict['num_train'] = 80
+    data_dict['num_valid'] = 20
     return data_dict, num_class
 def make_data_loader_3d_patch(args, **kwargs):
    
@@ -231,4 +232,5 @@ def make_data_loader_seg(args, **kwargs):
             return train_loader1, train_loader2, val_loader, test_loader, num_class
         else:
             raise NotImplementedError
+
 
