@@ -6,7 +6,7 @@ import SimpleITK as sitk
 from os.path import join
 import numpy as np
 import math
-def make_data_loader(args, **kwargs):
+def make_data_loader(args,**kwargs):
     data_dict={}
     num_class = 4
     data_dir = './data'
@@ -25,7 +25,9 @@ def make_data_loader(args, **kwargs):
 
     valid_data = []
     valid_mask = []
-    for f in range(100):
+    test_data = []
+    test_mask = []
+    for f in range(training_data.shape[0]):
         this_name = 'part_%d' % f
         data = training_data[f, :, :]
         data = np.reshape(data, [1, 1, data.shape[0], data.shape[1]])
@@ -41,7 +43,10 @@ def make_data_loader(args, **kwargs):
 
         # sitk.WriteImage(sitk.GetImageFromArray(data), this_name + 'tr_im.nii.gz')
         # sitk.WriteImage(sitk.GetImageFromArray(labels), join(labelstr, this_name + '.nii.gz'))
-        if f >= 80:
+        if f >= int(training_data.shape[0]*0.8):
+            test_data.append(data)
+            test_mask.append(labels)
+        elif f >= int(training_data.shape[0]*0.6):
             valid_data.append(data)
             valid_mask.append(labels)
         else:
@@ -53,8 +58,12 @@ def make_data_loader(args, **kwargs):
     data_dict['train_mask'] = train_mask
     data_dict['valid_data'] = valid_data
     data_dict['valid_mask'] = valid_mask
-    data_dict['num_train'] = 80
-    data_dict['num_valid'] = 20
+    data_dict['test_data'] = test_data
+    data_dict['test_mask'] = test_mask
+    data_dict['num_train'] = int(training_data.shape[0]*0.6)
+    data_dict['num_valid'] = int(training_data.shape[0]*0.8)-int(training_data.shape[0]*0.6)
+    data_dict['num_test'] = training_data.shape[0]-int(training_data.shape[0]*0.8)
+    print('train/valid/test num:', data_dict['num_train'], data_dict['num_valid'], data_dict['num_test'])
     return data_dict, num_class
 def make_data_loader_3d_patch(args, **kwargs):
    
@@ -232,5 +241,6 @@ def make_data_loader_seg(args, **kwargs):
             return train_loader1, train_loader2, val_loader, test_loader, num_class
         else:
             raise NotImplementedError
+
 
 

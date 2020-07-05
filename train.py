@@ -2,7 +2,7 @@ import os
 import pdb
 import warnings
 import numpy as np
-
+import SimpleITK as sitk
 import torch
 import torch.nn as nn
 import torch.utils.data
@@ -16,7 +16,7 @@ from utils.step_lr_scheduler import Iter_LR_Scheduler
 from retrain_model.build_autodeeplab import Retrain_Autodeeplab
 from config_utils.re_train_autodeeplab import obtain_retrain_autodeeplab_args
 
-
+from utils.metrics import Evaluator
 
 def main():
     warnings.filterwarnings('ignore')
@@ -94,6 +94,7 @@ def main():
 
             print('epoch: {0}\t''iter: {1}/{2}\t''lr: {3:.6f}\t''loss: {loss.val:.4f} ({loss.ema:.4f})'.format(
                 epoch + 1, i + 1, args.data_dict['num_train'], scheduler.get_lr(optimizer), loss=losses))
+
         if epoch < args.epochs - 50:
             if epoch % 50 == 0:
                 torch.save({
@@ -108,9 +109,69 @@ def main():
                 'optimizer': optimizer.state_dict(),
             }, model_fname % (epoch + 1))
 
+        if epoch % 2 ==0:
+            ########################valid and test
+            validation(epoch, model, args, criterion, args.num_classes)
+            validation(epoch, model, args, criterion, args.num_classes, test_tag=True)
         print('reset local total loss!')
+
+
+def validation(epoch,model,args,criterion,nclass,test_tag=False):
+    model.eval()
+
+    losses = 0.0
+
+    evaluator = Evaluator(nclass)
+    evaluator.reset()
+    if test_tag==True:
+        num_img = args.data_dict['num_valid']
+    else:
+        num_img = args.data_dict['num_test']
+    for i in range(num_img):
+        if test_tag==True:
+            inputs = torch.FloatTensor(args.data_dict['valid_data'][i]).cuda()
+            target = torch.FloatTensor(args.data_dict['valid_mask'][i]).cuda()
+        else:
+            inputs = torch.FloatTensor(args.data_dict['test_data'][i]).cuda()
+            target = torch.FloatTensor(args.data_dict['test_mask'][i]).cuda()
+
+        with torch.no_grad():
+            output = model(inputs)
+        loss_val = criterion(output, target)
+        print(
+            'epoch: {0}\t''iter: {1}/{2}\t''loss: {loss:.4f}'.format(epoch + 1, i + 1, args.data_dict['num_train'], loss= loss_val))
+        pred = output.data.cpu().numpy()
+        target = target.cpu().numpy()
+        pred = np.argmax(pred, axis=1)
+        evaluator.add_batch(target, pred)
+ 
+        losses += loss_val
+
+        if test_tag == True:
+            #save input,target,pred
+            pred_save_dir = './pred/'
+            sitk.WriteImage(sitk.GetImageFromArray(inputs), pred_save_dir + 'input_{}.nii.gz'.format(i))
+            sitk.WriteImage(sitk.GetImageFromArray(target), pred_save_dir + 'target_{}.nii.gz'.format(i))
+            sitk.WriteImage(sitk.GetImageFromArray(pred), pred_save_dir + 'pred_{}_{}.nii.gz'.format(i, epoch))
+
+    Acc = evaluator.Pixel_Accuracy()
+    Acc_class = evaluator.Pixel_Accuracy_Class()
+    mIoU = evaluator.Mean_Intersection_over_Union()
+    FWIoU = evaluator.Frequency_Weighted_Intersection_over_Union()
+    if test_tag==True:
+        print('Test:')
+    else:
+        print('Validation:')
+    print('[Epoch: %d, numImages: %5d]' % (epoch, num_img))
+    print("Acc:{}, Acc_class:{}, mIoU:{}, fwIoU: {}".format(Acc, Acc_class, mIoU, FWIoU))
+    print('Loss: %.3f' % losses)
+
+    # val_losses+=loss_val
+    # print('epoch: {0}\t''loss: {loss.val:.4f}'.format(epoch + 1, val_losses))
+
 
 if __name__ == "__main__":
     main()
+
 
 
